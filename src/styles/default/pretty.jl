@@ -413,7 +413,7 @@ end
         end
     end
 
-    t = FST(CSTParser.StringH, -1, -1, loc[2] - 1, 0, nothing, FST[], Ref(cst), false, 0)
+    t = FST(CSTParser.StringH, -1, -1, loc[2] - 1, 0, nothing, FST[], Ref(cst), AllowNest, 0)
     for (i, l) in enumerate(lines)
         ln = startline + i - 1
         l = i == 1 ? l : l[sidx:end]
@@ -426,7 +426,7 @@ end
             l,
             nothing,
             nothing,
-            false,
+            AllowNest,
             0,
         )
         add_node!(t, tt, s)
@@ -480,7 +480,7 @@ function p_stringh(ds::DefaultStyle, cst::CSTParser.EXPR, s::State)
             l,
             nothing,
             nothing,
-            false,
+            AllowNest,
             0,
         )
         add_node!(t, tt, s)
@@ -1334,7 +1334,7 @@ function p_binaryopcall(
     end
 
     nrhs = nest_rhs(cst)
-    nrhs && (t.force_nest = true)
+    nrhs && (t.nest_behavior = AlwaysNest)
     nest = (nestable(style, cst) && !nonest) || nrhs
 
     if op.fullspan == 0
@@ -1556,10 +1556,8 @@ function p_invisbrackets(
     t = FST(cst, nspaces(s))
     nest = !is_iterable(cst[2]) && !nonest
 
-    if is_block(cst[2])
-        t.force_nest = true
-    elseif cst[2].typ === CSTParser.Generator && is_block(cst[2][1])
-        t.force_nest = true
+    if is_block(cst[2]) || (cst[2].typ === CSTParser.Generator && is_block(cst[2][1]))
+        t.nest_behavior = AlwaysNest
     end
 
     for (i, a) in enumerate(cst)
@@ -1710,10 +1708,8 @@ function p_comprehension(ds::DefaultStyle, cst::CSTParser.EXPR, s::State)
     style = getstyle(ds)
     t = FST(cst, nspaces(s))
 
-    if is_block(cst[2])
-        t.force_nest = true
-    elseif cst[2].typ === CSTParser.Generator && is_block(cst[2][1])
-        t.force_nest = true
+    if is_block(cst[2]) || (cst[2].typ === CSTParser.Generator && is_block(cst[2][1]))
+        t.nest_behavior = AlwaysNest
     end
 
     add_node!(t, pretty(style, cst[1], s), s, join_lines = true)
@@ -1731,10 +1727,8 @@ function p_typedcomprehension(ds::DefaultStyle, cst::CSTParser.EXPR, s::State)
     style = getstyle(ds)
     t = FST(cst, nspaces(s))
 
-    if is_block(cst[3])
-        t.force_nest = true
-    elseif cst[3].typ === CSTParser.Generator && is_block(cst[3][1])
-        t.force_nest = true
+    if is_block(cst[3]) || (cst[3].typ === CSTParser.Generator && is_block(cst[3][1]))
+        t.nest_behavior = AlwaysNest
     end
 
     add_node!(t, pretty(style, cst[1], s), s, join_lines = true)
@@ -1853,8 +1847,8 @@ function p_vcat(ds::DefaultStyle, cst::CSTParser.EXPR, s::State)
                 add_node!(t, Placeholder(0), s)
             end
         else
-            # If arguments are on different force nest
-            diff_line && (t.force_nest = true)
+            # If arguments are on different always nest
+            diff_line && (t.nest_behavior = AlwaysNest)
             add_node!(t, n, s, join_lines = true)
         end
     end
